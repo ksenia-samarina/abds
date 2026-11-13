@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -10,67 +11,58 @@ import (
 	"time"
 )
 
-func main() {
-	rand.Seed(42)
-	outDir := "data"
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Generating dim_realty...")
-	generateRealty(filepath.Join(outDir, "dim_realty.csv"))
-
-	fmt.Println("Generating dim_gauges...")
-	generateGauges(filepath.Join(outDir, "dim_gauges.csv"))
-
-	fmt.Println("Generating dim_tariffs...")
-	generateTariffs(filepath.Join(outDir, "dim_tariffs.csv"))
-
-	fmt.Println("Generating dim_users...")
-	generateUsers(filepath.Join(outDir, "dim_users.csv"))
-
-	fmt.Println("Generating fact_gauge_bindings...")
-	generateGaugeBindings(filepath.Join(outDir, "fact_gauge_bindings.csv"))
-
-	fmt.Println("Generating fact_meter_readings...")
-	generateMeterReadings(filepath.Join(outDir, "fact_meter_readings.csv"))
-
-	fmt.Println("Generating fact_invoice...")
-	generateInvoices(filepath.Join(outDir, "fact_invoice.csv"))
-
-	fmt.Println("Generation complete!")
+type GeneratorRepository interface {
+	GenerateRealty(path string) error
+	GenerateGauges(path string) error
+	GenerateTariffs(path string) error
+	GenerateUsers(path string) error
+	GenerateGaugeBindings(path string) error
+	GenerateMeterReadings(path string) error
+	GenerateInvoices(path string) error
 }
 
-func generateRealty(filename string) {
+type CSVDataRepository struct {
+	rng *rand.Rand
+	log *slog.Logger
+}
+
+func NewCSVDataRepository(seed int64, logger *slog.Logger) *CSVDataRepository {
+	return &CSVDataRepository{
+		rng: rand.New(rand.NewSource(seed)),
+		log: logger,
+	}
+}
+
+func (r *CSVDataRepository) GenerateRealty(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
 	types := []string{"flat", "nrcp"}
 	streets := []string{"Пушкина", "Ленина", "Гагарина", "Мира", "Советская"}
-
 	nowStr := "2023-10-01 00:00:00"
 
 	for i := 1; i <= 1000; i++ {
-		t := types[rand.Intn(len(types))]
-		street := streets[rand.Intn(len(streets))]
-		house := rand.Intn(50) + 1
+		t := types[r.rng.Intn(len(types))]
+		street := streets[r.rng.Intn(len(streets))]
+		house := r.rng.Intn(50) + 1
 		addr := fmt.Sprintf("г. Москва, ул. %s, д. %d", street, house)
-		sq := strconv.Itoa(rand.Intn(80) + 20)
+		sq := strconv.Itoa(r.rng.Intn(80) + 20)
 		num := ""
 		rooms := "0"
 		if t == "flat" {
-			num = strconv.Itoa(rand.Intn(200) + 1)
-			rooms = strconv.Itoa(rand.Intn(4) + 1)
+			num = strconv.Itoa(r.rng.Intn(200) + 1)
+			rooms = strconv.Itoa(r.rng.Intn(4) + 1)
 		}
-		floor := strconv.Itoa(rand.Intn(16) + 1)
-		porch := strconv.Itoa(rand.Intn(4) + 1)
+		floor := strconv.Itoa(r.rng.Intn(16) + 1)
+		porch := strconv.Itoa(r.rng.Intn(4) + 1)
 
-		w.Write([]string{
+		if err := w.Write([]string{
 			strconv.Itoa(i),
 			addr,
 			sq,
@@ -80,16 +72,20 @@ func generateRealty(filename string) {
 			floor,
 			porch,
 			nowStr,
-		})
+		}); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func generateGauges(filename string) {
+func (r *CSVDataRepository) GenerateGauges(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
@@ -98,36 +94,50 @@ func generateGauges(filename string) {
 	nowStr := "2023-10-01 00:00:00"
 
 	for i := 1; i <= 1200; i++ {
-		m := models[rand.Intn(len(models))]
-		c := countries[rand.Intn(len(countries))]
-		w.Write([]string{
+		m := models[r.rng.Intn(len(models))]
+		c := countries[r.rng.Intn(len(countries))]
+		if err := w.Write([]string{
 			strconv.Itoa(i),
 			m,
 			c,
 			nowStr,
-		})
+		}); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func generateTariffs(filename string) {
+func (r *CSVDataRepository) GenerateTariffs(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
-	w.Write([]string{"1", "День-Ночь v1", "550", "275", "2023-01-01 00:00:00", "2024-07-01 00:00:00", "2023-01-01 00:00:00", "2023-01-01 00:00:00"})
-	w.Write([]string{"1", "День-Ночь v2", "620", "310", "2024-07-01 00:00:00", "2099-01-01 00:00:00", "2024-07-01 00:00:00", "2024-07-01 00:00:00"})
+	rows := [][]string{
+		{"1", "День-Ночь v1", "550", "275", "2023-01-01 00:00:00", "2024-07-01 00:00:00", "2023-01-01 00:00:00", "2023-01-01 00:00:00"},
+		{"1", "День-Ночь v2", "620", "310", "2024-07-01 00:00:00", "2099-01-01 00:00:00", "2024-07-01 00:00:00", "2024-07-01 00:00:00"},
+	}
+
+	for _, row := range rows {
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func generateUsers(filename string) {
+func (r *CSVDataRepository) GenerateUsers(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
@@ -136,68 +146,79 @@ func generateUsers(filename string) {
 	for i := 1; i <= 1000; i++ {
 		fio := fmt.Sprintf("Пользователь %d", i)
 		phone := fmt.Sprintf("+7900%07d", i)
-		w.Write([]string{
+		if err := w.Write([]string{
 			strconv.Itoa(i),
 			fio,
 			phone,
 			"",
 			nowStr,
 			nowStr,
-		})
+		}); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func generateGaugeBindings(filename string) {
+func (r *CSVDataRepository) GenerateGaugeBindings(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
 	installDate := "2023-10-01 00:00:00"
 	replaceDate := "2024-11-01 00:00:00"
-
 	replacementCount := 200
 	replacementGaugeID := 1001
 
 	for realtyID := 1; realtyID <= 1000; realtyID++ {
 		gaugeID := realtyID
-		w.Write([]string{
+		if err := w.Write([]string{
 			strconv.Itoa(gaugeID),
 			strconv.Itoa(realtyID),
 			installDate,
 			"1",
 			"1",
-		})
+		}); err != nil {
+			return err
+		}
 
 		if realtyID <= replacementCount {
-			w.Write([]string{
+			if err := w.Write([]string{
 				strconv.Itoa(gaugeID),
 				strconv.Itoa(realtyID),
 				replaceDate,
 				"-1",
 				"1",
-			})
-			w.Write([]string{
+			}); err != nil {
+				return err
+			}
+			if err := w.Write([]string{
 				strconv.Itoa(replacementGaugeID),
 				strconv.Itoa(realtyID),
 				replaceDate,
 				"1",
 				"2",
-			})
+			}); err != nil {
+				return err
+			}
 			replacementGaugeID++
 		}
 	}
+	return nil
 }
 
-func generateMeterReadings(filename string) {
+func (r *CSVDataRepository) GenerateMeterReadings(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
@@ -221,10 +242,10 @@ func generateMeterReadings(filename string) {
 				gaugeID = replacementGaugeMap[realtyID]
 			}
 
-			dayKw := 1000 + rand.Intn(500)
-			nightKw := 200 + rand.Intn(100)
+			dayKw := 1000 + r.rng.Intn(500)
+			nightKw := 200 + r.rng.Intn(100)
 
-			w.Write([]string{
+			if err := w.Write([]string{
 				strconv.Itoa(realtyID),
 				strconv.Itoa(userID),
 				strconv.Itoa(tariffID),
@@ -233,11 +254,13 @@ func generateMeterReadings(filename string) {
 				strconv.Itoa(dayKw),
 				strconv.Itoa(nightKw),
 				createdStr,
-			})
+			}); err != nil {
+				return err
+			}
 
-			if rand.Float32() < 0.03 {
+			if r.rng.Float32() < 0.03 {
 				correctedCreatedStr := curr.Format("2006-01-02") + " 18:00:00"
-				w.Write([]string{
+				if err := w.Write([]string{
 					strconv.Itoa(realtyID),
 					strconv.Itoa(userID),
 					strconv.Itoa(tariffID),
@@ -246,18 +269,22 @@ func generateMeterReadings(filename string) {
 					strconv.Itoa(dayKw + 5),
 					strconv.Itoa(nightKw + 2),
 					correctedCreatedStr,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 		}
 	}
+	return nil
 }
 
-func generateInvoices(filename string) {
+func (r *CSVDataRepository) GenerateInvoices(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
@@ -279,8 +306,8 @@ func generateInvoices(filename string) {
 				gaugeID = 1000 + realtyID
 			}
 
-			dayKw := 150 + rand.Intn(50)
-			nightKw := 50 + rand.Intn(20)
+			dayKw := 150 + r.rng.Intn(50)
+			nightKw := 50 + r.rng.Intn(20)
 
 			priceDay := 550
 			priceNight := 275
@@ -290,7 +317,7 @@ func generateInvoices(filename string) {
 			}
 			totalPrice := (dayKw * priceDay) + (nightKw * priceNight)
 
-			w.Write([]string{
+			if err := w.Write([]string{
 				strconv.Itoa(realtyID),
 				strconv.Itoa(userID),
 				strconv.Itoa(tariffID),
@@ -300,7 +327,46 @@ func generateInvoices(filename string) {
 				strconv.Itoa(totalPrice),
 				deadlineStr,
 				createdStr,
-			})
+			}); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
+}
+
+func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	outDir := "data"
+
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		logger.Error("failed to create data output directory", "error", err)
+		os.Exit(1)
+	}
+
+	repo := NewCSVDataRepository(42, logger)
+
+	tasks := []struct {
+		name string
+		file string
+		fn   func(string) error
+	}{
+		{"dim_realty", filepath.Join(outDir, "dim_realty.csv"), repo.GenerateRealty},
+		{"dim_gauges", filepath.Join(outDir, "dim_gauges.csv"), repo.GenerateGauges},
+		{"dim_tariffs", filepath.Join(outDir, "dim_tariffs.csv"), repo.GenerateTariffs},
+		{"dim_users", filepath.Join(outDir, "dim_users.csv"), repo.GenerateUsers},
+		{"fact_gauge_bindings", filepath.Join(outDir, "fact_gauge_bindings.csv"), repo.GenerateGaugeBindings},
+		{"fact_meter_readings", filepath.Join(outDir, "fact_meter_readings.csv"), repo.GenerateMeterReadings},
+		{"fact_invoice", filepath.Join(outDir, "fact_invoice.csv"), repo.GenerateInvoices},
+	}
+
+	for _, task := range tasks {
+		logger.Info("generating dataset", "table", task.name, "file", task.file)
+		if err := task.fn(task.file); err != nil {
+			logger.Error("failed to generate dataset", "table", task.name, "error", err)
+			os.Exit(1)
+		}
+	}
+
+	logger.Info("dataset generation completed successfully")
 }

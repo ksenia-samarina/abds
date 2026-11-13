@@ -1,4 +1,4 @@
-.PHONY: run rund services stop clean gen load setup teardown
+.PHONY: build run rund services stop clean gen load setup teardown
 .DEFAULT_GOAL = run
 
 # Runs all services in detached mode.
@@ -21,9 +21,18 @@ stop:
 clean:
 	docker compose down -v
 
-# Generates dataset CSV files using Go binary generator
+# Builds generator binary
+build:
+	mkdir -p bin
+	go build -o bin/generator ./cmd/generator/main.go
+
+# Generates dataset CSV files using binary (builds if missing)
 gen:
-	go run ./cmd/generator/main.go
+	@if [ -f bin/generator ]; then \
+		./bin/generator; \
+	else \
+		go run ./cmd/generator/main.go; \
+	fi
 
 # Loads CSV datasets into ClickHouse
 load:
