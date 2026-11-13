@@ -290,7 +290,7 @@ func (r *CSVDataRepository) GenerateInvoices(filename string) error {
 
 	startYear, startMonth := 2023, 11
 
-	for m := 0; m < 36; m++ {
+	for m := range 36 {
 		dt := time.Date(startYear, time.Month(startMonth+m), 1, 0, 0, 0, 0, time.UTC)
 		deadlineDt := time.Date(dt.Year(), dt.Month()+1, 10, 0, 0, 0, 0, time.UTC)
 		createdDt := time.Date(dt.Year(), dt.Month()+1, 1, 10, 0, 0, 0, time.UTC)

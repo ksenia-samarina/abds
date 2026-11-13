@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -91,7 +92,7 @@ func (r *ClickHouseRepository) GetUser(ctx context.Context, id uint64) (*User, e
 	row := r.db.QueryRowContext(ctx, query, id)
 	var u User
 	err := row.Scan(&u.ID, &u.FIO, &u.Phone, &u.PhonePrev)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -132,7 +133,7 @@ func (r *ClickHouseRepository) GetRealty(ctx context.Context, id uint64) (*Realt
 	row := r.db.QueryRowContext(ctx, query, id)
 	var re Realty
 	err := row.Scan(&re.ID, &re.Address, &re.Square, &re.Type, &re.Number, &re.Rooms, &re.Floor, &re.Porch)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -235,7 +236,7 @@ func (r *ClickHouseRepository) GetTariffByDate(ctx context.Context, dateStr stri
 	var t Tariff
 	var vf, vt time.Time
 	err = row.Scan(&t.ID, &t.Name, &t.PriceDayKWPH, &t.PriceNightKWPH, &vf, &vt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -261,7 +262,7 @@ func (r *ClickHouseRepository) BindGauge(ctx context.Context, realtyID uint64, g
 	err := row.Scan(&activeGaugeID, &activeVersion)
 	if err == nil {
 		hasActive = true
-	} else if err != sql.ErrNoRows {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 
@@ -360,7 +361,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err := s.repo.UpdateUser(ctx, id, req.FIO, req.Phone)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			jsonError(w, http.StatusNotFound, "Not found")
 			return
 		}
@@ -547,7 +548,7 @@ func (s *Server) handleGetReadings(w http.ResponseWriter, r *http.Request, realt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"readings": readings,
 		"count":    len(readings),
 	})
@@ -596,7 +597,7 @@ func (s *Server) handleGetInvoices(w http.ResponseWriter, r *http.Request, realt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"invoices": invoices,
 		"count":    total,
 	})
