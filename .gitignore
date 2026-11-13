@@ -1,4 +1,11 @@
 # ============================================
+# Custom / Project specific
+# ============================================
+data/
+volume/
+bin/
+
+# ============================================
 # Operating System
 # ============================================
 .DS_Store
@@ -98,3 +105,5 @@ yarn-error.log*
 vendor/
 composer.phar
 composer.lock
+
+.aider*
